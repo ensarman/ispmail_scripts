@@ -7,6 +7,7 @@ verify_ssl = true
 flake8-black = "*"
 
 [packages]
+mysqlclient = "*"
 
 [requires]
 python_version = "3.8"
