@@ -63,8 +63,6 @@ hashed_password = subprocess.run(
     capture_output=True,
     encoding='utf8').stdout.rstrip()
 
-print(hashed_password)
-
 db = _mysql.connect(host=dbhost, user=dbuser, passwd=dbpass, db=database)
 
 
