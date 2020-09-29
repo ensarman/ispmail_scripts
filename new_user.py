@@ -1,18 +1,12 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import argparse
-import subprocess
 from MySQLdb import _mysql
-import string
-import random
-
-def pw_gen(size = 15, chars=string.ascii_letters + string.digits):
-        return ''.join(random.choice(chars) for _ in range(size))
-
+from password import pw_gen, crypt_pass
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-u", help="username")
+parser.add_argument("-u",help="username")
 parser.add_argument("-p", help="password")
 parser.add_argument("-d", help="domain")
 parser.add_argument("-q", help="quota")
@@ -56,18 +50,16 @@ user = options.u
 domain = options.d
 quota = options.q
 
-print(raw_password)
+print(f'new random password: {raw_password}')
 
-hashed_password = subprocess.run(
-    ['doveadm', 'pw', '-s', 'BLF-CRYPT', '-p', raw_password],
-    capture_output=True,
-    encoding='utf8').stdout.rstrip()
+hashed_password = crypt_pass(options.password)
 
 db = _mysql.connect(host=dbhost, user=dbuser, passwd=dbpass, db=database)
 
-
 query = f"""
-INSERT INTO `virtual_users` (`id`, `domain_id`, `email`, `password`, `quota`) VALUES (NULL, (SELECT id FROM virtual_domains WHERE name='{domain}'), '{user}@{domain}','{hashed_password}', {quota});
+INSERT INTO `virtual_users` (`id`, `domain_id`, `email`, `password`, `quota`) 
+    VALUES (NULL, (SELECT id FROM virtual_domains 
+    WHERE name='{domain}'), '{user}@{domain}','{hashed_password}', {quota});
 """
 db.query(query)
 
