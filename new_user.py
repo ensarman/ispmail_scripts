@@ -1,67 +1,52 @@
 #!/usr/bin/env python3
 
 import argparse
-from MySQLdb import _mysql
+import MySQLdb
+from sys import exit as sys_exit
 from password import pw_gen, crypt_pass
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-u",help="username")
-parser.add_argument("-p", help="password")
-parser.add_argument("-d", help="domain")
-parser.add_argument("-q", help="quota")
-parser.add_argument("-db", help="mysql database")
-parser.add_argument("-dbh", help="mysql host")
-parser.add_argument("-dbu", help="mysql username")
-parser.add_argument("-dbp", help="mysql password")
+parser.add_argument("-p", "--password", help="e-mail password, type 'gen' if want a generated password", default=None)
+parser.add_argument("-q", "--quota", help="e-mail quota", default=None)
+parser.add_argument("-db", "--dbname", help="mysql database", default='mailserver')
+parser.add_argument("-dbh", "--dbhost", help="mysql host", default="localhost")
+parser.add_argument("-dbu", "--dbuser", help="mysql username", default='mailadmin')
+required_parser = parser.add_argument_group('required arguments')
+required_parser.add_argument("-u", "--user", help="username", required=True)
+required_parser.add_argument("-dbp", "--dbpassword", help="mysql password", required=True)
 
 options = parser.parse_args()
 
-if options.dbh == None :
-    dbhost = 'localhost'
-else:
-    dbhost = options.dbh
+user = options.user.split("@")[0]
+domain = options.user.split("@")[1]
 
-if options.dbu == None :
-    dbuser = 'mailadmin'
-else:
-    dbuser = options.dbu
+db = MySQLdb.connect(host=options.dbhost, user=options.dbuser,
+                     passwd=options.dbpassword, db=options.dbname)
+cursor = db.cursor()
 
-if options.dbp == None :
-    dbpass = ""
+if options.quota is None:
+    quota = 1073741824  # 1 GB
 else:
-    dbpass = options.dbp
+    # multiplicamos quota por el la cantidad de bytes en un GB
+    quota = int(options.quota) * 1073741824
+    print(f"new quota is: {quota} bytes")
 
-if options.db == None :
-    database = "mailserver"
-else:
-    database = options.db
-
-if options.q == None:
-    quota = 0
-else:
-    quota = options.q
-
-if options.p == None:
+if options.password is None:
     raw_password = pw_gen()
+    print(f'new random password: {raw_password}')
+    hashed_password = crypt_pass(raw_password)
+elif len(options.password) < 10:
+    sys_exit("Password length is less than 10 characters")
 else:
-    raw_password = options.p
-user = options.u
-domain = options.d
-quota = options.q
-
-print(f'new random password: {raw_password}')
-
-hashed_password = crypt_pass(options.password)
-
-db = _mysql.connect(host=dbhost, user=dbuser, passwd=dbpass, db=database)
+    print(f"the new password is: {options.password}")
+    hashed_password = crypt_pass(options.password)
 
 query = f"""
-INSERT INTO `virtual_users` (`id`, `domain_id`, `email`, `password`, `quota`) 
-    VALUES (NULL, (SELECT id FROM virtual_domains 
+INSERT INTO `virtual_users` (`id`, `domain_id`, `email`, `password`, `quota`)
+    VALUES (NULL, (SELECT id FROM virtual_domains
     WHERE name='{domain}'), '{user}@{domain}','{hashed_password}', {quota});
 """
-db.query(query)
-
+cursor.execute(query)
+db.commit()
 db.close()
-
